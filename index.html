@@ -25,10 +25,12 @@
 
 <div class="bg-white rounded shadow p-4 mb-6 overflow-auto">
   <input type="text" id="searchBox" placeholder="Cari..." class="form-control mb-4 w-full sm:w-64">
+
   <table class="table table-bordered table-striped table-hover">
     <thead id="tableHeader" class="table-light"></thead>
     <tbody id="tableBody"></tbody>
   </table>
+
   <div id="cardList" class="card-list space-y-4"></div>
 </div>
 
@@ -46,7 +48,7 @@
 </div>
 
 <script>
-const WEB_APP_URL = "PASTE_WEB_APP_URL_HERE"; // Ganti URL deploy Apps Script
+const WEB_APP_URL = "YOUR_WEB_APP_URL_HERE"; // Ganti dengan URL deploy Apps Script
 let allData=[], filteredData=[], currentPage=1, rowsPerPage=10;
 
 // Convert file to Base64
@@ -59,81 +61,136 @@ function fileToBase64(file){
   });
 }
 
-// Load data dari Sheet
+// Format Rupiah
+function formatRupiah(val){
+  if(!val) return "";
+  let num = Number(val.toString().replace(/[^0-9.-]+/g,""));
+  return "Rp."+num.toLocaleString("id-ID",{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+// Load data dari sheet
 async function loadData(){
   try{
     const res=await fetch(`${WEB_APP_URL}?action=getAploudData`);
     const data=await res.json();
-    allData=data; filteredData=allData; currentPage=1;
+    allData=data;
+    filteredData=allData;
+    currentPage=1;
     renderTable();
   }catch(err){
-    console.error(err); alert("Gagal load data");
+    console.error(err);
+    alert("Gagal load data");
   }
 }
 
+// Filter pencarian
 function applyFilters(){
   const q=document.getElementById("searchBox").value.toLowerCase();
   filteredData=allData.filter(row=>Object.values(row).some(v=>String(v).toLowerCase().includes(q)));
-  currentPage=1; renderTable();
+  currentPage=1;
+  renderTable();
 }
 
+// Render tabel & card
 function renderTable(){
   const tbody=document.getElementById("tableBody");
   const thead=document.getElementById("tableHeader");
   const cardList=document.getElementById("cardList");
   tbody.innerHTML=""; thead.innerHTML=""; cardList.innerHTML="";
 
-  if(!filteredData.length){tbody.innerHTML="<tr><td colspan='14' class='text-center p-2'>Tidak ada data</td></tr>"; return;}
+  if(!filteredData.length){
+    tbody.innerHTML="<tr><td colspan='14' class='text-center p-2'>Tidak ada data</td></tr>"; 
+    return;
+  }
 
   const headers=Object.keys(filteredData[0]);
   const trh=document.createElement("tr");
-  headers.forEach(h=>{const th=document.createElement("th"); th.textContent=h; trh.appendChild(th);});
+  headers.forEach(h=>{
+    const th=document.createElement("th"); th.textContent=h; trh.appendChild(th);
+  });
   thead.appendChild(trh);
 
   filteredData.forEach(row=>{
     const tr=document.createElement("tr");
     headers.forEach(h=>{
       const td=document.createElement("td");
-      if(h==="Keterangan"){
+      if(h==="Keterangan"){ // kolom M
         td.innerHTML="";
         if(row[h]) td.innerHTML=`<span class="doc-icon" title="Lihat Dokumen" onclick="previewFileModal('${row[h]}')">📖</span>`;
         td.innerHTML+=`<br><input type="file" onchange="uploadFile(event,'${encodeURIComponent(row['Nama Satuan'])}','${encodeURIComponent(row['Status Penggunaan'])}',this.parentNode)"/>`;
+      }else if(h==="Nilai Perolehan (Rp)"){
+        td.textContent=formatRupiah(row[h]);
       }else td.textContent=row[h];
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
   });
+
+  // Card view mobile
+  filteredData.forEach(row=>{
+    const card=document.createElement("div");
+    card.className="border rounded-lg p-3 bg-white shadow-sm";
+    let html="";
+    headers.forEach(h=>{
+      if(h==="Keterangan"){
+        html+=`<p>${h}: `;
+        if(row[h]) html+=`<span class="doc-icon" onclick="previewFileModal('${row[h]}')">📖</span>`;
+        html+=`</p><input type="file" class="w-full mt-1" onchange="uploadFile(event,'${encodeURIComponent(row['Nama Satuan'])}','${encodeURIComponent(row['Status Penggunaan'])}',this.parentNode)"/>`;
+      }else if(h==="Nilai Perolehan (Rp)"){
+        html+=`<p><b>${h}:</b> ${formatRupiah(row[h])}</p>`;
+      }else html+=`<p><b>${h}:</b> ${row[h]}</p>`;
+    });
+    card.innerHTML=html;
+    cardList.appendChild(card);
+  });
 }
 
+// Upload file ke Google Drive & update kolom M
 async function uploadFile(e,namaSatuan,status,container){
   const file=e.target.files[0]; if(!file) return;
   const statusMsg=document.createElement("p"); statusMsg.textContent="Mengunggah..."; container.appendChild(statusMsg);
   try{
     const base64=await fileToBase64(file);
-    const payload={action:"uploadFile",namaSatuan:decodeURIComponent(namaSatuan),statusPenggunaan:decodeURIComponent(status),base64:base64.split(",")[1],mimeType:file.type};
+    const payload={
+      action:"uploadFile",
+      namaSatuan:decodeURIComponent(namaSatuan),
+      statusPenggunaan:decodeURIComponent(status),
+      base64:base64.split(",")[1],
+      mimeType:file.type
+    };
     const res=await fetch(WEB_APP_URL,{method:"POST",body:JSON.stringify(payload)});
     const result=await res.json();
     if(result.success){
-      statusMsg.textContent="Upload berhasil!"; e.target.disabled=true;
+      statusMsg.textContent="Upload berhasil!";
+      e.target.disabled=true;
+
       const docIcon=document.createElement("span");
-      docIcon.className="doc-icon"; docIcon.title="Lihat Dokumen"; docIcon.textContent="📖";
+      docIcon.className="doc-icon";
+      docIcon.title="Lihat Dokumen";
+      docIcon.textContent="📖";
       docIcon.onclick=()=>previewFileModal(result.fileUrl);
       container.insertBefore(docIcon, container.firstChild);
     }else statusMsg.textContent="Gagal upload: "+result.message;
-  }catch(err){console.error(err); statusMsg.textContent="Terjadi kesalahan saat upload.";}
+  }catch(err){
+    console.error(err);
+    statusMsg.textContent="Terjadi kesalahan saat upload.";
+  }
 }
 
 // Preview file di modal
 function previewFileModal(url){
   const modal=document.getElementById("modalPreview");
   const frame=document.getElementById("previewFrame");
-  modal.style.display="flex"; frame.src=`https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
+  modal.style.display="flex";
+  frame.src=`https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
 }
 
+// Close modal
 document.getElementById("closeModal").addEventListener("click",()=>{
   const modal=document.getElementById("modalPreview");
   const frame=document.getElementById("previewFrame");
-  modal.style.display="none"; frame.src="";
+  modal.style.display="none";
+  frame.src="";
 });
 
 document.getElementById("searchBox").addEventListener("input",applyFilters);

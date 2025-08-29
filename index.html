@@ -3,21 +3,29 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Data Sheet Bangunan + Upload</title>
+<title>Data Bangunan - Upload Dokumen</title>
 <style>
-body{margin:0;font-family:sans-serif;background:#fff;color:#111827;}
-header{padding:20px;text-align:center;background:#f9fafb;border-bottom:1px solid #e5e7eb;}
+body{margin:0;font-family:sans-serif;background:#fefefe;color:#111827;}
+header{padding:20px;text-align:center;background:#f3f4f6;border-bottom:1px solid #e5e7eb;}
 .container{max-width:1200px;margin:0 auto;padding:16px;}
-table{width:100%;border-collapse:collapse;margin-top:16px;font-size:14px;}
-th,td{padding:8px 12px;border:1px solid #d1d5db;text-align:left;}
-th{background:#f3f4f6;color:#111827;position:sticky;top:0;z-index:1;}
-tr:nth-child(even){background:#f9fafb;}
 input, select, button{padding:6px 10px;border-radius:6px;border:1px solid #d1d5db;background:#fff;color:#111827;}
-button:hover{background:#e5e7eb;}
+button:hover{background:#e5e7eb;cursor:pointer;}
 .status{margin-top:12px;font-size:14px;color:#374151;}
+.table-wrapper{overflow:auto;max-height:70vh;margin-top:12px;}
+table{width:100%;border-collapse:collapse;font-size:14px;}
+th,td{padding:8px 12px;border:1px solid #d1d5db;text-align:left;}
+th{background:#f3f4f6;position:sticky;top:0;z-index:1;}
+tr:nth-child(even){background:#f9fafb;}
+.card-list{display:none;}
+.card{border:1px solid #d1d5db;border-radius:6px;padding:12px;margin-bottom:12px;background:#fff;}
+.card p{margin:4px 0;}
 .pagination{margin-top:12px;text-align:center;}
-.pagination button{margin:0 4px;padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:#f3f4f6;color:#111827;cursor:pointer;}
+.pagination button{margin:0 4px;padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:#f3f4f6;color:#111827;}
 .pagination button:disabled{background:#e5e7eb;color:#9ca3af;cursor:not-allowed;}
+@media(max-width:640px){
+  table{display:none;}
+  .card-list{display:block;}
+}
 </style>
 </head>
 <body>
@@ -27,28 +35,28 @@ button:hover{background:#e5e7eb;}
 </header>
 
 <main class="container">
-  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-    <input id="search" placeholder="🔍 Cari data..." style="width:300px"/>
-    <label>
-      Tampilkan
-      <select id="rowsPerPageSelect">
-        <option value="25">25</option>
-        <option value="50" selected>50</option>
-        <option value="100">100</option>
-      </select>
-      baris
-    </label>
-  </div>
-  <div id="status" class="status">Memuat data…</div>
-  <div style="overflow:auto;max-height:70vh">
-    <table id="dataTable"></table>
-  </div>
-  <div class="pagination" id="pagination"></div>
+<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+  <input id="search" placeholder="🔍 Cari data..." style="flex:1;min-width:180px"/>
+  <label>
+    Tampilkan
+    <select id="rowsPerPageSelect">
+      <option value="25">25</option>
+      <option value="50" selected>50</option>
+      <option value="100">100</option>
+    </select>
+    baris
+  </label>
+</div>
+<div id="status" class="status">Memuat data…</div>
+<div class="table-wrapper">
+  <table id="dataTable"></table>
+  <div class="card-list" id="cardList"></div>
+</div>
+<div class="pagination" id="pagination"></div>
 </main>
 
 <script>
 const WEB_APP_URL = "YOUR_WEB_APP_URL_HERE"; // ganti dengan URL Web App Apps Script
-
 let allData=[], filteredData=[], currentPage=1, rowsPerPage=50;
 
 // ===== Load Data =====
@@ -56,8 +64,12 @@ async function loadData(){
   try{
     const res = await fetch(`${WEB_APP_URL}?sheet=Bangunan`);
     const rawData = await res.json();
-    allData = rawData; filteredData=allData; currentPage=1;
-    renderTable(); renderPagination();
+    allData = rawData;
+    filteredData = allData;
+    currentPage=1;
+    renderTable();
+    renderCards();
+    renderPagination();
     document.getElementById('status').textContent=`✅ Berhasil memuat ${allData.length} baris data.`;
   } catch(err){
     console.error(err);
@@ -70,7 +82,6 @@ function renderTable(){
   const table=document.getElementById("dataTable");
   table.innerHTML="";
   if(!filteredData.length){ table.innerHTML="<tr><td colspan='16'>Tidak ada data</td></tr>"; return; }
-
   const headers=Object.keys(filteredData[0]);
   const start=(currentPage-1)*rowsPerPage;
   const end=start+rowsPerPage;
@@ -79,7 +90,8 @@ function renderTable(){
   const thead=document.createElement("thead");
   const trh=document.createElement("tr");
   headers.forEach(h=>{ const th=document.createElement("th"); th.textContent=h; trh.appendChild(th); });
-  thead.appendChild(trh); table.appendChild(thead);
+  thead.appendChild(trh);
+  table.appendChild(thead);
 
   const tbody=document.createElement("tbody");
   pageData.forEach(r=>{
@@ -87,8 +99,7 @@ function renderTable(){
     headers.forEach(h=>{
       const td=document.createElement("td");
       if(h==="LINK DOKUMEN" && r[h]){
-        const a=document.createElement("a");
-        a.href=r[h]; a.textContent="📎 Dokumen"; a.target="_blank"; td.appendChild(a);
+        const a=document.createElement("a"); a.href=r[h]; a.textContent="📎 Dokumen"; a.target="_blank"; td.appendChild(a);
       } else if(h==="LINK DOKUMEN" && !r[h]){
         const input=document.createElement("input"); input.type="file"; input.id=`file-${r["Nama Barang"]}`;
         const btn=document.createElement("button"); btn.textContent="Upload";
@@ -102,6 +113,33 @@ function renderTable(){
   table.appendChild(tbody);
 }
 
+// ===== Render Cards Mobile =====
+function renderCards(){
+  const cardList=document.getElementById("cardList");
+  cardList.innerHTML="";
+  const start=(currentPage-1)*rowsPerPage;
+  const end=start+rowsPerPage;
+  const pageData=filteredData.slice(start,end);
+  pageData.forEach(r=>{
+    const card=document.createElement("div"); card.className="card";
+    for(const key in r){
+      if(key==="LINK DOKUMEN"){
+        if(r[key]){
+          const a=document.createElement("a"); a.href=r[key]; a.textContent="📎 Dokumen"; a.target="_blank"; card.appendChild(a);
+        } else {
+          const input=document.createElement("input"); input.type="file"; input.id=`file-${r["Nama Barang"]}-mobile`;
+          const btn=document.createElement("button"); btn.textContent="Upload";
+          btn.onclick=()=>uploadFile(r["Nama Barang"],true);
+          card.appendChild(input); card.appendChild(btn);
+        }
+      } else {
+        const p=document.createElement("p"); p.textContent=`${key}: ${r[key]}`; card.appendChild(p);
+      }
+    }
+    cardList.appendChild(card);
+  });
+}
+
 // ===== Pagination =====
 function renderPagination(){
   const pagination=document.getElementById("pagination");
@@ -109,43 +147,41 @@ function renderPagination(){
   const totalPages=Math.ceil(filteredData.length/rowsPerPage);
 
   const prevBtn=document.createElement("button"); prevBtn.textContent="⬅️ Prev"; prevBtn.disabled=currentPage===1;
-  prevBtn.onclick=()=>{currentPage--; renderTable(); renderPagination();}; pagination.appendChild(prevBtn);
+  prevBtn.onclick=()=>{currentPage--; renderTable(); renderCards(); renderPagination();}; pagination.appendChild(prevBtn);
 
   const info=document.createElement("span"); info.textContent=` Halaman ${currentPage} dari ${totalPages} `; pagination.appendChild(info);
 
   const nextBtn=document.createElement("button"); nextBtn.textContent="Next ➡️"; nextBtn.disabled=currentPage===totalPages;
-  nextBtn.onclick=()=>{currentPage++; renderTable(); renderPagination();}; pagination.appendChild(nextBtn);
+  nextBtn.onclick=()=>{currentPage++; renderTable(); renderCards(); renderPagination();}; pagination.appendChild(nextBtn);
 }
 
 // ===== Search =====
 document.getElementById("search").addEventListener("input", e=>{
   const q=e.target.value.toLowerCase();
   filteredData=allData.filter(r=>Object.values(r).some(v=>String(v).toLowerCase().includes(q)));
-  currentPage=1; renderTable(); renderPagination();
+  currentPage=1; renderTable(); renderCards(); renderPagination();
 });
 
 // ===== Rows Per Page =====
 document.getElementById("rowsPerPageSelect").addEventListener("change", e=>{
-  rowsPerPage=parseInt(e.target.value,10); currentPage=1; renderTable(); renderPagination();
+  rowsPerPage=parseInt(e.target.value,10); currentPage=1; renderTable(); renderCards(); renderPagination();
 });
 
 // ===== Upload File =====
-async function uploadFile(namaBarang){
-  const input=document.getElementById(`file-${namaBarang}`);
+async function uploadFile(namaBarang,mobile=false){
+  const inputId = mobile ? `file-${namaBarang}-mobile` : `file-${namaBarang}`;
+  const input=document.getElementById(inputId);
   if(!input.files.length){ alert("Pilih file terlebih dahulu!"); return; }
   const file=input.files[0];
   const reader=new FileReader();
   reader.onload=async function(e){
     const base64 = e.target.result.split(",")[1];
-    const payload = {namaBarang, base64, mimeType:file.type, sheet:"Bangunan"};
+    const payload={namaBarang,base64,mimeType:file.type,sheet:"Bangunan"};
     try{
-      const res = await fetch(WEB_APP_URL, {method:"POST", body:JSON.stringify(payload)});
+      const res = await fetch(WEB_APP_URL,{method:"POST",body:JSON.stringify(payload)});
       const result = await res.json();
-      if(result.success){
-        alert("Upload berhasil!");
-        input.disabled=true;
-        loadData(); // reload data
-      } else alert("Gagal upload: "+result.message);
+      if(result.success){ alert("Upload berhasil!"); input.disabled=true; loadData(); }
+      else alert("Gagal upload: "+result.message);
     } catch(err){ console.error(err); alert("Terjadi kesalahan saat upload."); }
   };
   reader.readAsDataURL(file);

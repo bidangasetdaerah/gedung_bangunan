@@ -11,6 +11,7 @@
   @media(max-width:640px){ table{display:none;} .card-list{display:block;} }
   @media(min-width:641px){ .card-list{display:none;} }
   .doc-icon { font-size: 20px; cursor:pointer; margin-right:4px; }
+  iframe { width:100%; height:300px; border:1px solid #ccc; margin-top:4px; }
 </style>
 </head>
 <body class="bg-gray-100 p-4">
@@ -30,7 +31,7 @@
 </div>
 
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyYqV4CpGFMZR1dTeEz8ohfqC5j2_X11V7Mkr8kSHaf_3AwIhx0LOWRbWDEWpBvI1bZ/exec"; // ganti URL Apps Script
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby0xSjtmRifofuxjUZK1pOcbjqqQpsSXqH7OE2l5yE59dDZZLXBIsmAzx-640fyzpLnBw/exec"; // ganti URL Apps Script
 let allData=[], filteredData=[], currentPage=1, rowsPerPage=10;
 
 function fileToBase64(file){
@@ -42,14 +43,12 @@ function fileToBase64(file){
   });
 }
 
-// Format Rupiah
 function formatRupiah(val){
   if(!val) return "";
   let num = Number(val.toString().replace(/[^0-9.-]+/g,""));
   return "Rp."+num.toLocaleString("id-ID",{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 
-// Load data dari spreadsheet
 async function loadData(){
   try{
     const res = await fetch(`${WEB_APP_URL}?action=getAploudData`);
@@ -97,8 +96,20 @@ function renderTable(){
       const td = document.createElement("td");
       if(h === "LINK DOKUMEN"){
         td.innerHTML = "";
-        if(row[h]) td.innerHTML = `<a href="${row[h]}" target="_blank" class="doc-icon">📖</a>`;
-        td.innerHTML += `<br><input type="file" class="w-full mt-1" onchange="uploadFile(event,'${encodeURIComponent(row['Nama Barang'])}','${encodeURIComponent(row['Status Penggunaan'])}',this.parentNode)"/>`;
+        const fileInput = document.createElement("input");
+        fileInput.type = "file";
+        fileInput.className = "w-full mt-1";
+        fileInput.onchange = (e)=>uploadFile(e,row['Nama Barang'],row['Status Penggunaan'],td);
+
+        if(row[h]) {
+          td.innerHTML = `<a href="${row[h]}" target="_blank" class="doc-icon">📖</a>`;
+          fileInput.disabled = true;
+          // Tambahkan preview iframe
+          const iframe = document.createElement("iframe");
+          iframe.src = `https://docs.google.com/gview?url=${encodeURIComponent(row[h])}&embedded=true`;
+          td.appendChild(iframe);
+        }
+        td.appendChild(fileInput);
       } else if(h==="Nilai Perolehan (Rp)"){
         td.textContent = formatRupiah(row[h]);
       } else {
@@ -118,7 +129,9 @@ function renderTable(){
       if(h === "LINK DOKUMEN"){
         html += `<p>${h}: `;
         if(row[h]) html += `<a href="${row[h]}" target="_blank" class="doc-icon">📖</a>`;
-        html += `</p><input type="file" class="w-full mt-1" onchange="uploadFile(event,'${encodeURIComponent(row['Nama Barang'])}','${encodeURIComponent(row['Status Penggunaan'])}',this.parentNode)"/>`;
+        html += `</p>`;
+        if(row[h]) html += `<iframe src="https://docs.google.com/gview?url=${encodeURIComponent(row[h])}&embedded=true"></iframe>`;
+        html += `<input type="file" class="w-full mt-1" ${row[h] ? "disabled" : ""} onchange="uploadFile(event,'${encodeURIComponent(row['Nama Barang'])}','${encodeURIComponent(row['Status Penggunaan'])}',this.parentNode)"/>`;
       } else if(h==="Nilai Perolehan (Rp)"){
         html += `<p><b>${h}:</b> ${formatRupiah(row[h])}</p>`;
       } else {
@@ -130,7 +143,6 @@ function renderTable(){
   });
 }
 
-// Upload file ke Drive & update spreadsheet
 async function uploadFile(e,namaBarang,status,container){
   const file = e.target.files[0]; if(!file) return;
   const statusMsg = document.createElement("p"); statusMsg.textContent="Mengunggah..."; container.appendChild(statusMsg);
@@ -150,12 +162,17 @@ async function uploadFile(e,namaBarang,status,container){
       statusMsg.textContent="Upload berhasil!";
       e.target.disabled = true;
 
+      // tampilkan icon dan preview
       const docIcon = document.createElement("a");
       docIcon.href = result.fileUrl;
       docIcon.target = "_blank";
       docIcon.className = "doc-icon";
       docIcon.textContent = "📖";
       container.insertBefore(docIcon, container.firstChild);
+
+      const iframe = document.createElement("iframe");
+      iframe.src = `https://docs.google.com/gview?url=${encodeURIComponent(result.fileUrl)}&embedded=true`;
+      container.appendChild(iframe);
     } else statusMsg.textContent="Gagal upload: "+result.message;
   } catch(err){
     console.error(err);

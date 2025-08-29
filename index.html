@@ -102,21 +102,46 @@ function fileToBase64(file) {
 async function loadData() {
   try {
     const res = await fetch(`${WEB_APP_URL}?action=getAploudData`);
-    allData = await res.json();
+    const rawData = await res.json();
+
+    // Normalisasi key agar jadi camelCase
+    allData = rawData.map(d => ({
+      kodeBarang: d["Kode Barang"],
+      namaBarang: d["Nama Barang"],
+      nibar: d["NIBAR"],
+      noRegister: d["Nomor Register"],
+      spesifikasiNama: d["Spesifikasi Nama Barang"],
+      spesifikasiLain: d["Spesifikasi Lainnya"],
+      lokasi: d["Lokasi"],
+      jumlah: d["Jumlah"],
+      satuan: d["Satuan"],
+      nilaiPerolehan: d["Nilai Perolehan (Rp)"],
+      tanggalPerolehan: d["Tanggal Perolehan"],
+      statusPenggunaan: d["Status Penggunaan"],
+      keterangan: d["Keterangan"],
+      dokumen: d["LINK DOKUMEN"],
+      // tambahan jika ada di sheet
+      namaSatuan: d["Nama Satuan"],
+      jenjang: d["Jenjang"],
+      kecamatan: d["Kecamatan"]
+    }));
+
     filteredData = allData;
 
     // isi dropdown satuan
     const select = document.getElementById('satuan');
     select.innerHTML = '<option value="">-- Pilih Satuan Pendidikan --</option>';
     allData.forEach(item => {
-      const option = document.createElement('option');
-      option.value = item.namaSatuan;
-      option.textContent = `${item.namaSatuan} (${item.jenjang})`;
-      select.appendChild(option);
+      if (item.namaSatuan) {
+        const option = document.createElement('option');
+        option.value = item.namaSatuan;
+        option.textContent = `${item.namaSatuan} (${item.jenjang || "-"})`;
+        select.appendChild(option);
+      }
     });
 
     // isi dropdown kecamatan (unik)
-    const kecamatanSet = [...new Set(allData.map(d => d.kecamatan))].sort();
+    const kecamatanSet = [...new Set(allData.map(d => d.kecamatan))].filter(Boolean).sort();
     const filterKecamatan = document.getElementById('filterKecamatan');
     filterKecamatan.innerHTML = '<option value="">-- Semua Kecamatan --</option>';
     kecamatanSet.forEach(kec => {
@@ -138,7 +163,7 @@ function applyFilters() {
   const kecamatan = document.getElementById('filterKecamatan').value;
 
   filteredData = allData.filter(d => {
-    const matchNama = d.namaSatuan.toLowerCase().includes(keyword);
+    const matchNama = d.namaSatuan ? d.namaSatuan.toLowerCase().includes(keyword) : false;
     const matchKec = kecamatan ? d.kecamatan === kecamatan : true;
     return matchNama && matchKec;
   });

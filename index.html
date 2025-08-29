@@ -41,12 +41,13 @@
 </div>
 
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxLxWLQBczcrpn0P_cv7eBXIzeVY-ofpwakSQsKIl4rTrhkauD1DgDxJJnEdtPjJbS1Pw/exec"; // ganti sesuai deploy Apps Script
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxLxWLQBczcrpn0P_cv7eBXIzeVY-ofpwakSQsKIl4rTrhkauD1DgDxJJnEdtPjJbS1Pw/exec";
 let allData = [];
 let filteredData = [];
 let currentPage = 1;
 const rowsPerPage = 10;
 
+// Convert file to Base64
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -56,6 +57,7 @@ function fileToBase64(file) {
   });
 }
 
+// Load data dari Sheet
 async function loadData() {
   try {
     const res = await fetch(`${WEB_APP_URL}?action=getAploudData`);
@@ -70,6 +72,7 @@ async function loadData() {
   }
 }
 
+// Filter data berdasarkan pencarian
 function applyFilters() {
   const q = document.getElementById("searchBox").value.toLowerCase();
   filteredData = allData.filter(row => 
@@ -79,6 +82,7 @@ function applyFilters() {
   renderTable();
 }
 
+// Render tabel desktop dan card mobile
 function renderTable() {
   const tbody = document.getElementById("tableBody");
   const thead = document.getElementById("tableHeader");
@@ -94,7 +98,7 @@ function renderTable() {
 
   const headers = Object.keys(filteredData[0]);
 
-  // Desktop Header
+  // Header Desktop
   const trh = document.createElement("tr");
   headers.forEach(h => {
     const th = document.createElement("th");
@@ -104,7 +108,7 @@ function renderTable() {
   });
   thead.appendChild(trh);
 
-  // pagination
+  // Pagination slice
   const start = (currentPage - 1) * rowsPerPage;
   const end = start + rowsPerPage;
   const pageData = filteredData.slice(start, end);
@@ -116,7 +120,9 @@ function renderTable() {
       const td = document.createElement("td");
       td.className = "border p-2";
       if (h === "LINK DOKUMEN") {
-        if (row[h]) td.innerHTML = `<a href="${row[h]}" target="_blank" class="text-blue-600 underline">Lihat</a>`;
+        td.innerHTML = row[h] 
+          ? `<a href="${row[h]}" target="_blank" title="Lihat Dokumen">👁️</a>` 
+          : "";
         td.innerHTML += `<br>
           <input type="file" class="text-xs mt-1" onchange="uploadFile(event, '${encodeURIComponent(row['Nama Satuan'])}', '${encodeURIComponent(row['Status Penggunaan'])}')"
           ${row[h] ? "disabled" : ""}/>
@@ -136,7 +142,7 @@ function renderTable() {
     headers.forEach(h => {
       if (h === "LINK DOKUMEN") {
         html += `<p>${h}: `;
-        if (row[h]) html += `<a href="${row[h]}" target="_blank" class="text-blue-600 underline">Lihat</a>`;
+        if (row[h]) html += `<a href="${row[h]}" target="_blank" title="Lihat Dokumen">👁️</a>`;
         html += `</p>
           <input type="file" class="text-xs mt-1 w-full" onchange="uploadFile(event, '${encodeURIComponent(row['Nama Satuan'])}', '${encodeURIComponent(row['Status Penggunaan'])}')"
           ${row[h] ? "disabled" : ""}/>
@@ -150,13 +156,14 @@ function renderTable() {
     cardList.appendChild(card);
   });
 
-  // update pagination info
+  // Update pagination info
   const totalPages = Math.ceil(filteredData.length / rowsPerPage) || 1;
   document.getElementById("pageInfo").textContent = `Halaman ${currentPage} dari ${totalPages}`;
   document.getElementById("prevBtn").disabled = currentPage === 1;
   document.getElementById("nextBtn").disabled = currentPage === totalPages;
 }
 
+// Upload file per baris
 async function uploadFile(e, namaSatuan, status) {
   const file = e.target.files[0];
   if (!file) return;
@@ -183,7 +190,7 @@ async function uploadFile(e, namaSatuan, status) {
     if (result.success) {
       statusMsg.textContent = "Upload berhasil!";
       e.target.disabled = true;
-      loadData(); // refresh data agar link muncul
+      loadData(); // refresh agar link muncul
     } else {
       statusMsg.textContent = "Gagal upload: " + result.message;
     }

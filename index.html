@@ -30,9 +30,10 @@
 </div>
 
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx5QgxV4h97jTO22-acMi6Wrc90nqnlA03tYWlE2bOJHMgIvjCFH1rNBeNW5QRLY-gTuw/exec"; // ganti dengan URL deploy Apps Script
-let allData = [], filteredData = [], currentPage = 1, rowsPerPage = 10;
+const WEB_APP_URL = "YOUR_DEPLOY_URL_HERE"; // ganti dengan URL deploy Apps Script
+let allData=[], filteredData=[], currentPage=1, rowsPerPage=10;
 
+// Convert file ke Base64
 function fileToBase64(file){
   return new Promise((resolve,reject)=>{
     const reader=new FileReader();
@@ -42,6 +43,14 @@ function fileToBase64(file){
   });
 }
 
+// Format Rupiah
+function formatRupiah(val){
+  if(!val) return "";
+  let num = Number(val.toString().replace(/[^0-9.-]+/g,""));
+  return "Rp."+num.toLocaleString("id-ID", {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+// Load data dari Sheet
 async function loadData(){
   const res=await fetch(`${WEB_APP_URL}?action=getAploudData`);
   const data=await res.json();
@@ -51,6 +60,7 @@ async function loadData(){
   renderTable();
 }
 
+// Filter search
 function applyFilters(){
   const q=document.getElementById("searchBox").value.toLowerCase();
   filteredData=allData.filter(row=>Object.values(row).some(v=>String(v).toLowerCase().includes(q)));
@@ -78,11 +88,13 @@ function renderTable(){
       const td=document.createElement("td");
       if(h==="LINK DOKUMEN"){
         td.innerHTML=row[h] 
-          ? `<a href="${row[h]}" target="_blank">Lihat</a>` 
+          ? `<a href="${row[h]}" target="_blank">👁️</a>` 
           : "";
         td.innerHTML+=`<br><input type="file" onchange="uploadFile(event,'${encodeURIComponent(row['Nama Satuan'])}','${encodeURIComponent(row['Status Penggunaan'])}',this.parentNode)"/>`;
         if(row[h]) td.innerHTML+=`<iframe src="https://docs.google.com/gview?url=${encodeURIComponent(row[h])}&embedded=true"></iframe>`;
-      } else td.textContent=row[h];
+      }else if(h==="Nilai Perolehan (Rp)"){
+        td.textContent=formatRupiah(row[h]);
+      }else td.textContent=row[h];
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
@@ -104,7 +116,6 @@ async function uploadFile(e,namaSatuan,status,container){
   if(result.success){
     statusMsg.textContent="Upload berhasil!";
     e.target.disabled=true;
-    // Tambahkan preview iframe
     const iframe=document.createElement("iframe");
     iframe.src=`https://docs.google.com/gview?url=${encodeURIComponent(result.fileUrl)}&embedded=true`;
     container.appendChild(iframe);

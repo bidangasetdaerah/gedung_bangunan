@@ -4,17 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Upload & Preview Dokumen Bangunan</title>
-<!-- TailwindCSS -->
 <script src="https://cdn.tailwindcss.com"></script>
-<!-- Bootstrap CSS -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 <style>
-  /* Sticky header */
   table th { position: sticky; top: 0; background-color: #f3f3f3; z-index: 10; }
-  /* Responsive for mobile */
   @media(max-width:640px){ table{display:none;} .card-list{display:block;} }
   @media(min-width:641px){ .card-list{display:none;} }
   iframe { width: 100%; height: 300px; border: 1px solid #ccc; margin-top: 4px; }
+  .doc-icon { font-size: 20px; cursor:pointer; margin-right:4px; }
 </style>
 </head>
 <body class="bg-gray-100 p-4">
@@ -25,22 +22,18 @@
 <div class="bg-white rounded shadow p-4 mb-6 overflow-auto">
   <input type="text" id="searchBox" placeholder="Cari..." class="form-control mb-4 w-full sm:w-64">
 
-  <!-- Table Desktop -->
   <table class="table table-bordered table-striped table-hover">
     <thead id="tableHeader" class="table-light"></thead>
     <tbody id="tableBody"></tbody>
   </table>
 
-  <!-- Mobile Card List -->
   <div id="cardList" class="card-list space-y-4"></div>
-</div>
 </div>
 
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz6eXRM2jRKaZVWVCnhKczbxlpXZb4u91hTHtp5yiF-l1qODeKq6IkurjlxJOuGx8t-mA/exec"; // ganti dengan URL Apps Script
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz6eXRM2jRKaZVWVCnhKczbxlpXZb4u91hTHtp5yiF-l1qODeKq6IkurjlxJOuGx8t-mA/exec"; // ganti URL Apps Script
 let allData=[], filteredData=[], currentPage=1, rowsPerPage=10;
 
-// Convert file to Base64
 function fileToBase64(file){
   return new Promise((resolve,reject)=>{
     const reader=new FileReader();
@@ -50,14 +43,12 @@ function fileToBase64(file){
   });
 }
 
-// Format Rupiah
 function formatRupiah(val){
   if(!val) return "";
   let num = Number(val.toString().replace(/[^0-9.-]+/g,""));
   return "Rp."+num.toLocaleString("id-ID",{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 
-// Load data dari Sheet
 async function loadData(){
   const res=await fetch(`${WEB_APP_URL}?action=getAploudData`);
   const data=await res.json();
@@ -67,7 +58,6 @@ async function loadData(){
   renderTable();
 }
 
-// Filter data
 function applyFilters(){
   const q=document.getElementById("searchBox").value.toLowerCase();
   filteredData=allData.filter(row=>Object.values(row).some(v=>String(v).toLowerCase().includes(q)));
@@ -75,7 +65,6 @@ function applyFilters(){
   renderTable();
 }
 
-// Render table & card
 function renderTable(){
   const tbody=document.getElementById("tableBody");
   const thead=document.getElementById("tableHeader");
@@ -97,11 +86,12 @@ function renderTable(){
     headers.forEach(h=>{
       const td=document.createElement("td");
       if(h==="LINK DOKUMEN"){
-        td.innerHTML=row[h] 
-          ? `<a href="${row[h]}" target="_blank">👁️</a>` 
-          : "";
+        td.innerHTML="";
+        if(row[h]){
+          td.innerHTML=`<span class="doc-icon" title="Lihat Dokumen" onclick="previewFile('${row[h]}')">📖</span>`;
+          td.innerHTML+=`<iframe src="https://docs.google.com/gview?url=${encodeURIComponent(row[h])}&embedded=true"></iframe>`;
+        }
         td.innerHTML+=`<br><input type="file" onchange="uploadFile(event,'${encodeURIComponent(row['Nama Satuan'])}','${encodeURIComponent(row['Status Penggunaan'])}',this.parentNode)"/>`;
-        if(row[h]) td.innerHTML+=`<iframe src="https://docs.google.com/gview?url=${encodeURIComponent(row[h])}&embedded=true"></iframe>`;
       }else if(h==="Nilai Perolehan (Rp)"){
         td.textContent=formatRupiah(row[h]);
       }else td.textContent=row[h];
@@ -110,15 +100,15 @@ function renderTable(){
     tbody.appendChild(tr);
   });
 
-  // Mobile cards
   pageData.forEach(row=>{
     const card=document.createElement("div");
     card.className="border rounded-lg p-3 bg-white shadow-sm";
     let html="";
     headers.forEach(h=>{
       if(h==="LINK DOKUMEN"){
-        html+=`<p>${h}: `+(row[h]? `<a href="${row[h]}" target="_blank">👁️</a>`:"")+`</p>`;
-        html+=`<input type="file" class="w-full mt-1" onchange="uploadFile(event,'${encodeURIComponent(row['Nama Satuan'])}','${encodeURIComponent(row['Status Penggunaan'])}',this.parentNode)"/>`;
+        html+=`<p>${h}: `;
+        if(row[h]) html+=`<span class="doc-icon" onclick="previewFile('${row[h]}')">📖</span>`;
+        html+=`</p><input type="file" class="w-full mt-1" onchange="uploadFile(event,'${encodeURIComponent(row['Nama Satuan'])}','${encodeURIComponent(row['Status Penggunaan'])}',this.parentNode)"/>`;
         if(row[h]) html+=`<iframe src="https://docs.google.com/gview?url=${encodeURIComponent(row[h])}&embedded=true"></iframe>`;
       }else if(h==="Nilai Perolehan (Rp)"){
         html+=`<p><b>${h}:</b> ${formatRupiah(row[h])}</p>`;
@@ -129,7 +119,6 @@ function renderTable(){
   });
 }
 
-// Upload file & simpan link otomatis ke kolom M
 async function uploadFile(e,namaSatuan,status,container){
   const file=e.target.files[0]; if(!file) return;
   const statusMsg=document.createElement("p"); statusMsg.textContent="Mengunggah..."; container.appendChild(statusMsg);
@@ -143,7 +132,20 @@ async function uploadFile(e,namaSatuan,status,container){
     const iframe=document.createElement("iframe");
     iframe.src=`https://docs.google.com/gview?url=${encodeURIComponent(result.fileUrl)}&embedded=true`;
     container.appendChild(iframe);
+
+    const docIcon=document.createElement("span");
+    docIcon.className="doc-icon";
+    docIcon.title="Lihat Dokumen";
+    docIcon.textContent="📖";
+    docIcon.onclick=()=>previewFile(result.fileUrl);
+    container.insertBefore(docIcon, container.firstChild);
   }else statusMsg.textContent="Gagal upload: "+result.message;
+}
+
+// Preview file
+function previewFile(url){
+  const win=window.open();
+  win.document.write(`<iframe src="https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true" style="width:100%;height:100vh;"></iframe>`);
 }
 
 document.getElementById("searchBox").addEventListener("input",applyFilters);

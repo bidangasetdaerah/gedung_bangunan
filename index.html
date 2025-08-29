@@ -48,15 +48,15 @@
 </div>
 
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzNWyBWjl-qtRoAT0SiGxAZ99kn2_woAaeLec_ERsgIl5tIMjhK64OpAqiXCJbzftUA0w/exec"; // ganti URL deploy Apps Script
-let allData = [], filteredData = [];
+const WEB_APP_URL = "Yhttps://script.google.com/macros/s/AKfycby_hklpK7GFQhlixYP3_9RLlO5t46ncZEZRCanSTK8qzhhGyC_4ITw5UtTfddyRoN8kqA/exec"; // ganti dengan URL Web App Apps Script
+let allData=[], filteredData=[], currentPage=1;
 
 // Convert file to Base64
 function fileToBase64(file){
   return new Promise((resolve,reject)=>{
-    const reader = new FileReader();
-    reader.onload = ()=>resolve(reader.result);
-    reader.onerror = e => reject(e);
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result);
+    reader.onerror=e=>reject(e);
     reader.readAsDataURL(file);
   });
 }
@@ -68,15 +68,15 @@ function formatRupiah(val){
   return "Rp."+num.toLocaleString("id-ID",{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 
-// Load data
+// Load data dari sheet
 async function loadData(){
   try{
-    const res = await fetch(`${WEB_APP_URL}?action=getAploudData`);
-    const data = await res.json();
-    allData = data;
-    filteredData = allData;
+    const res=await fetch(`${WEB_APP_URL}?action=getAploudData`);
+    const data=await res.json();
+    allData=data;
+    filteredData=allData;
     renderTable();
-  } catch(err){
+  }catch(err){
     console.error(err);
     alert("Gagal load data");
   }
@@ -84,51 +84,53 @@ async function loadData(){
 
 // Filter pencarian
 function applyFilters(){
-  const q = document.getElementById("searchBox").value.toLowerCase();
-  filteredData = allData.filter(row=>Object.values(row).some(v=>String(v).toLowerCase().includes(q)));
+  const q=document.getElementById("searchBox").value.toLowerCase();
+  filteredData=allData.filter(row=>Object.values(row).some(v=>String(v).toLowerCase().includes(q)));
   renderTable();
 }
 
 // Render tabel & card
 function renderTable(){
-  const tbody = document.getElementById("tableBody");
-  const thead = document.getElementById("tableHeader");
-  const cardList = document.getElementById("cardList");
-  tbody.innerHTML = ""; thead.innerHTML = ""; cardList.innerHTML = "";
+  const tbody=document.getElementById("tableBody");
+  const thead=document.getElementById("tableHeader");
+  const cardList=document.getElementById("cardList");
+  tbody.innerHTML=""; thead.innerHTML=""; cardList.innerHTML="";
 
   if(!filteredData.length){
-    tbody.innerHTML = "<tr><td colspan='14' class='text-center p-2'>Tidak ada data</td></tr>";
+    tbody.innerHTML="<tr><td colspan='14' class='text-center p-2'>Tidak ada data</td></tr>"; 
     return;
   }
 
-  const headers = Object.keys(filteredData[0]);
-  const trh = document.createElement("tr");
-  headers.forEach(h => {
-    const th = document.createElement("th"); th.textContent = h; trh.appendChild(th);
+  const headers=Object.keys(filteredData[0]);
+  const trh=document.createElement("tr");
+  headers.forEach(h=>{
+    const th=document.createElement("th"); 
+    th.textContent=h; 
+    trh.appendChild(th);
   });
   thead.appendChild(trh);
 
-  filteredData.forEach(row => {
-    const tr = document.createElement("tr");
-    headers.forEach(h => {
-      const td = document.createElement("td");
-      if(h==="LINK DOKUMEN"){ // kolom N
+  filteredData.forEach(row=>{
+    const tr=document.createElement("tr");
+    headers.forEach(h=>{
+      const td=document.createElement("td");
+      if(h==="LINK DOKUMEN"){ 
         td.innerHTML="";
         if(row[h]) td.innerHTML=`<span class="doc-icon" title="Lihat Dokumen" onclick="previewFileModal('${row[h]}')">📖</span>`;
-        td.innerHTML += `<br><input type="file" onchange="uploadFile(event,'${encodeURIComponent(row['Nama Satuan'])}','${encodeURIComponent(row['Status Penggunaan'])}',this.parentNode)"/>`;
+        td.innerHTML+=`<br><input type="file" onchange="uploadFile(event,'${encodeURIComponent(row['Nama Satuan'])}','${encodeURIComponent(row['Status Penggunaan'])}',this.parentNode)"/>`;
       }else if(h==="Nilai Perolehan (Rp)"){
-        td.textContent = formatRupiah(row[h]);
-      }else td.textContent = row[h];
+        td.textContent=formatRupiah(row[h]);
+      }else td.textContent=row[h];
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
   });
 
-  // Mobile card view
+  // Card view mobile
   filteredData.forEach(row=>{
-    const card = document.createElement("div");
-    card.className = "border rounded-lg p-3 bg-white shadow-sm";
-    let html = "";
+    const card=document.createElement("div");
+    card.className="border rounded-lg p-3 bg-white shadow-sm";
+    let html="";
     headers.forEach(h=>{
       if(h==="LINK DOKUMEN"){
         html+=`<p>${h}: `;
@@ -138,55 +140,65 @@ function renderTable(){
         html+=`<p><b>${h}:</b> ${formatRupiah(row[h])}</p>`;
       }else html+=`<p><b>${h}:</b> ${row[h]}</p>`;
     });
-    card.innerHTML = html;
+    card.innerHTML=html;
     cardList.appendChild(card);
   });
 }
 
-// Upload file
+// Upload file ke Drive & update kolom N
 async function uploadFile(e,namaSatuan,status,container){
-  const file = e.target.files[0]; if(!file) return;
-  const statusMsg = document.createElement("p"); statusMsg.textContent="Mengunggah..."; container.appendChild(statusMsg);
+  const file=e.target.files[0]; if(!file) return;
+  const statusMsg=document.createElement("p"); statusMsg.textContent="Mengunggah..."; container.appendChild(statusMsg);
   try{
-    const base64 = await fileToBase64(file);
-    const payload = {
-      action: "uploadFile",
-      namaSatuan: decodeURIComponent(namaSatuan),
-      statusPenggunaan: decodeURIComponent(status),
-      base64: base64.split(",")[1],
-      mimeType: file.type
+    const base64=await fileToBase64(file);
+    const payload={
+      action:"uploadFile",
+      namaSatuan:decodeURIComponent(namaSatuan),
+      statusPenggunaan:decodeURIComponent(status),
+      base64:base64.split(",")[1],
+      mimeType:file.type
     };
-    const res = await fetch(WEB_APP_URL,{method:"POST",body:JSON.stringify(payload)});
-    const result = await res.json();
+    const res=await fetch(WEB_APP_URL,{method:"POST",body:JSON.stringify(payload)});
+    const result=await res.json();
     if(result.success){
       statusMsg.textContent="Upload berhasil!";
-      e.target.disabled = true;
-      const docIcon = document.createElement("span");
-      docIcon.className = "doc-icon";
-      docIcon.title = "Lihat Dokumen";
-      docIcon.textContent = "📖";
-      docIcon.onclick = ()=>previewFileModal(result.fileUrl);
+      e.target.disabled=true;
+
+      const docIcon=document.createElement("span");
+      docIcon.className="doc-icon";
+      docIcon.title="Lihat Dokumen";
+      docIcon.textContent="📖";
+      docIcon.onclick=()=>previewFileModal(result.fileUrl);
       container.insertBefore(docIcon, container.firstChild);
-    }else statusMsg.textContent = "Gagal upload: "+result.message;
+
+      // Update allData supaya tetap muncul icon saat refresh
+      filteredData.forEach(r=>{
+        if(r["Nama Satuan"]===decodeURIComponent(namaSatuan) &&
+           r["Status Penggunaan"]===decodeURIComponent(status)){
+          r["LINK DOKUMEN"]=result.fileUrl;
+        }
+      });
+
+    }else statusMsg.textContent="Gagal upload: "+result.message;
   }catch(err){
     console.error(err);
     statusMsg.textContent="Terjadi kesalahan saat upload.";
   }
 }
 
-// Preview file modal
+// Preview file di modal
 function previewFileModal(url){
-  const modal = document.getElementById("modalPreview");
-  const frame = document.getElementById("previewFrame");
-  modal.style.display = "flex";
-  frame.src = `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
+  const modal=document.getElementById("modalPreview");
+  const frame=document.getElementById("previewFrame");
+  modal.style.display="flex";
+  frame.src=`https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
 }
 
 // Close modal
 document.getElementById("closeModal").addEventListener("click",()=>{
-  const modal = document.getElementById("modalPreview");
-  const frame = document.getElementById("previewFrame");
-  modal.style.display = "none";
+  const modal=document.getElementById("modalPreview");
+  const frame=document.getElementById("previewFrame");
+  modal.style.display="none";
   frame.src="";
 });
 

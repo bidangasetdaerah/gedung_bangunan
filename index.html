@@ -5,15 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Data Sheet Bangunan</title>
   <style>
-    body{margin:0;font-family:sans-serif;background:#0b1020;color:#e5e7eb}
-    header{padding:20px;text-align:center}
+    body{margin:0;font-family:sans-serif;background:#ffffff;color:#111827}
+    header{padding:20px;text-align:center;background:#f9fafb;border-bottom:1px solid #e5e7eb}
     .container{max-width:1200px;margin:0 auto;padding:16px}
-    table{width:100%;border-collapse:collapse;margin-top:16px}
-    th,td{padding:8px 12px;border:1px solid #1e293b;text-align:left}
-    th{background:#1f2937;color:#93c5fd;position:sticky;top:0;z-index:1}
-    tr:nth-child(even){background:#111827}
-    input{padding:6px 10px;border-radius:6px;border:1px solid #374151;background:#0f172a;color:#e5e7eb}
-    .status{margin-top:12px;font-size:14px;color:#94a3b8}
+    table{width:100%;border-collapse:collapse;margin-top:16px;font-size:14px}
+    th,td{padding:8px 12px;border:1px solid #d1d5db;text-align:left}
+    th{background:#f3f4f6;color:#111827;position:sticky;top:0;z-index:1}
+    tr:nth-child(even){background:#f9fafb}
+    input, select{padding:6px 10px;border-radius:6px;border:1px solid #d1d5db;background:#ffffff;color:#111827}
+    .status{margin-top:12px;font-size:14px;color:#374151}
+    .pagination{margin-top:12px;text-align:center}
+    .pagination button{margin:0 4px;padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:#f3f4f6;color:#111827;cursor:pointer}
+    .pagination button:disabled{background:#e5e7eb;color:#9ca3af;cursor:not-allowed}
   </style>
 </head>
 <body>
@@ -23,29 +26,42 @@
   </header>
 
   <main class="container">
-    <div>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
       <input id="search" placeholder="🔍 Cari data..." style="width:300px" />
+      <label>
+        Tampilkan
+        <select id="rowsPerPageSelect">
+          <option value="25">25</option>
+          <option value="50" selected>50</option>
+          <option value="100">100</option>
+        </select>
+        baris
+      </label>
     </div>
     <div id="status" class="status">Memuat data…</div>
     <div style="overflow:auto;max-height:70vh">
       <table id="dataTable"></table>
     </div>
+    <div class="pagination" id="pagination"></div>
   </main>
 
   <script>
-    // Ganti dengan URL WebApp Anda (yang sudah di-deploy sebagai "Anyone with link")
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbynYXMbmz5aTaNuIoED7fPMjFwJDmsbLxuBy_qzMzywr5k9fSh-i6ZqaVn-iwoITaKUaw/exec";
 
     let allData = [];
     let filteredData = [];
+    let currentPage = 1;
+    let rowsPerPage = 50;
 
     async function loadData() {
       try {
         const res = await fetch(`${WEB_APP_URL}?action=getData&sheet=Bangunan`);
         const rawData = await res.json();
-        allData = rawData;   // langsung pakai header asli sheet
+        allData = rawData;
         filteredData = allData;
+        currentPage = 1;
         renderTable();
+        renderPagination();
         document.getElementById('status').textContent =
           `✅ Berhasil memuat ${allData.length} baris data.`;
       } catch (err) {
@@ -64,6 +80,10 @@
       }
       const headers = Object.keys(filteredData[0]);
 
+      const start = (currentPage - 1) * rowsPerPage;
+      const end = start + rowsPerPage;
+      const pageData = filteredData.slice(start, end);
+
       // buat header
       const thead = document.createElement("thead");
       const trh = document.createElement("tr");
@@ -77,7 +97,7 @@
 
       // isi data
       const tbody = document.createElement("tbody");
-      filteredData.forEach(r => {
+      pageData.forEach(r => {
         const tr = document.createElement("tr");
         headers.forEach(h => {
           const td = document.createElement("td");
@@ -97,12 +117,43 @@
       table.appendChild(tbody);
     }
 
+    function renderPagination() {
+      const pagination = document.getElementById("pagination");
+      pagination.innerHTML = "";
+      const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+
+      const prevBtn = document.createElement("button");
+      prevBtn.textContent = "⬅️ Prev";
+      prevBtn.disabled = currentPage === 1;
+      prevBtn.onclick = () => { currentPage--; renderTable(); renderPagination(); };
+      pagination.appendChild(prevBtn);
+
+      const info = document.createElement("span");
+      info.textContent = ` Halaman ${currentPage} dari ${totalPages} `;
+      pagination.appendChild(info);
+
+      const nextBtn = document.createElement("button");
+      nextBtn.textContent = "Next ➡️";
+      nextBtn.disabled = currentPage === totalPages;
+      nextBtn.onclick = () => { currentPage++; renderTable(); renderPagination(); };
+      pagination.appendChild(nextBtn);
+    }
+
     document.getElementById("search").addEventListener("input", e => {
       const q = e.target.value.toLowerCase();
       filteredData = allData.filter(r =>
         Object.values(r).some(v => String(v).toLowerCase().includes(q))
       );
+      currentPage = 1;
       renderTable();
+      renderPagination();
+    });
+
+    document.getElementById("rowsPerPageSelect").addEventListener("change", e => {
+      rowsPerPage = parseInt(e.target.value, 10);
+      currentPage = 1;
+      renderTable();
+      renderPagination();
     });
 
     window.addEventListener("DOMContentLoaded", loadData);

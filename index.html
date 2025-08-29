@@ -1,309 +1,111 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Upload Dokumen Pendukung Inventarisasi</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Data Sheet Bangunan</title>
   <style>
-    @media (max-width: 640px) {
-      table { display: none; }
-      .card-list { display: block; }
-    }
-    @media (min-width: 641px) {
-      .card-list { display: none; }
-    }
+    body{margin:0;font-family:sans-serif;background:#0b1020;color:#e5e7eb}
+    header{padding:20px;text-align:center}
+    .container{max-width:1200px;margin:0 auto;padding:16px}
+    table{width:100%;border-collapse:collapse;margin-top:16px}
+    th,td{padding:8px 12px;border:1px solid #1e293b;text-align:left}
+    th{background:#1f2937;color:#93c5fd;position:sticky;top:0;z-index:1}
+    tr:nth-child(even){background:#111827}
+    input{padding:6px 10px;border-radius:6px;border:1px solid #374151;background:#0f172a;color:#e5e7eb}
+    .status{margin-top:12px;font-size:14px;color:#94a3b8}
   </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex flex-col items-center p-4 sm:p-6">
-  <h1 class="text-2xl sm:text-3xl font-bold mb-6 text-center">Upload Dokumen Pendukung Inventarisasi</h1>
+<body>
+  <header>
+    <h1>📄 Data Bangunan</h1>
+    <p>Menarik data langsung dari Google Sheet <b>"Bangunan"</b></p>
+  </header>
 
-  <!-- Form Upload Global -->
-  <div class="bg-white shadow-md rounded-lg p-4 sm:p-6 w-full max-w-xl mb-8">
-    <label class="block mb-2 font-semibold">Pilih Satuan Pendidikan :</label>
-    <select id="satuan" class="w-full border rounded p-2 mb-4 text-sm sm:text-base">
-      <option value="">-- Pilih Satuan Pendidikan --</option>
-    </select>
-
-    <label class="block mb-2 font-semibold">Pilih File:</label>
-    <input type="file" id="fileInput" class="mb-4 w-full text-sm sm:text-base" />
-
-    <button id="btnGlobalUpload" onclick="uploadFile()" 
-      class="bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-700 transition text-sm sm:text-base">
-      Upload
-    </button>
-    <p id="status" class="mt-4 text-center text-sm sm:text-base"></p>
-  </div>
-
-  <!-- Container Data -->
-  <div class="bg-white shadow-md rounded-lg p-4 sm:p-6 w-full overflow-x-auto">
-    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-2">
-      <input type="text" id="searchBox" placeholder="Cari nama satuan..." 
-        class="border rounded p-2 text-sm sm:text-base w-full sm:w-64" oninput="applyFilters()"/>
-      
-      <select id="filterKecamatan" onchange="applyFilters()" 
-        class="border rounded p-2 text-sm sm:text-base w-full sm:w-64">
-        <option value="">-- Semua Kecamatan --</option>
-      </select>
+  <main class="container">
+    <div>
+      <input id="search" placeholder="🔍 Cari data..." style="width:300px" />
     </div>
-
-    <!-- Tabel Desktop -->
-    <table class="table-auto w-full border-collapse border border-gray-300 text-sm sm:text-base">
-      <thead class="bg-gray-200">
-        <tr>
-          <th class="border p-2">Kode Barang</th>
-          <th class="border p-2">Nama Barang</th>
-          <th class="border p-2">NIBAR</th>
-          <th class="border p-2">Nomor Register</th>
-          <th class="border p-2">Spesifikasi Nama Barang</th>
-          <th class="border p-2">Spesifikasi Lainnya</th>
-          <th class="border p-2">Lokasi</th>
-          <th class="border p-2">Jumlah</th>
-          <th class="border p-2">Satuan</th>
-          <th class="border p-2">Nilai Perolehan (Rp)</th>
-          <th class="border p-2">Tanggal Perolehan</th>
-          <th class="border p-2">Status Penggunaan</th>
-          <th class="border p-2">Keterangan</th>
-          <th class="border p-2">Link Dokumen</th>
-        </tr>
-      </thead>
-      <tbody id="tabelData"></tbody>
-    </table>
-
-    <!-- Card List Mobile -->
-    <div id="cardList" class="card-list space-y-4"></div>
-
-    <!-- Pagination -->
-    <div class="flex justify-center items-center gap-2 mt-4">
-      <button id="prevBtn" onclick="prevPage()" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm">Prev</button>
-      <span id="pageInfo" class="text-sm"></span>
-      <button id="nextBtn" onclick="nextPage()" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm">Next</button>
+    <div id="status" class="status">Memuat data…</div>
+    <div style="overflow:auto;max-height:70vh">
+      <table id="dataTable"></table>
     </div>
-  </div>
+  </main>
 
-<script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxgNG8MEpVsb_2ZcP2LP2CgP24AYoihNpt-iEo2J5vzSl-jX_tS3OPD46CalOfyOWWXTQ/exec";
+  <script>
+    // Ganti dengan URL WebApp Anda (yang sudah di-deploy sebagai "Anyone with link")
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbynYXMbmz5aTaNuIoED7fPMjFwJDmsbLxuBy_qzMzywr5k9fSh-i6ZqaVn-iwoITaKUaw/exec";
 
-// Pagination state
-let allData = [];
-let filteredData = [];
-let currentPage = 1;
-const rowsPerPage = 15;
+    let allData = [];
+    let filteredData = [];
 
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = error => reject(error);
-    reader.readAsDataURL(file);
-  });
-}
-
-async function loadData() {
-  try {
-    const res = await fetch(`${WEB_APP_URL}?action=getAploudData`);
-    const rawData = await res.json();
-
-    // Normalisasi key agar jadi camelCase
-    allData = rawData.map(d => ({
-      kodeBarang: d["Kode Barang"],
-      namaBarang: d["Nama Barang"],
-      nibar: d["NIBAR"],
-      noRegister: d["Nomor Register"],
-      spesifikasiNama: d["Spesifikasi Nama Barang"],
-      spesifikasiLain: d["Spesifikasi Lainnya"],
-      lokasi: d["Lokasi"],
-      jumlah: d["Jumlah"],
-      satuan: d["Satuan"],
-      nilaiPerolehan: d["Nilai Perolehan (Rp)"],
-      tanggalPerolehan: d["Tanggal Perolehan"],
-      statusPenggunaan: d["Status Penggunaan"],
-      keterangan: d["Keterangan"],
-      dokumen: d["LINK DOKUMEN"],
-      // tambahan jika ada di sheet
-      namaSatuan: d["Nama Satuan"],
-      jenjang: d["Jenjang"],
-      kecamatan: d["Kecamatan"]
-    }));
-
-    filteredData = allData;
-
-    // isi dropdown satuan
-    const select = document.getElementById('satuan');
-    select.innerHTML = '<option value="">-- Pilih Satuan Pendidikan --</option>';
-    allData.forEach(item => {
-      if (item.namaSatuan) {
-        const option = document.createElement('option');
-        option.value = item.namaSatuan;
-        option.textContent = `${item.namaSatuan} (${item.jenjang || "-"})`;
-        select.appendChild(option);
+    async function loadData() {
+      try {
+        const res = await fetch(`${WEB_APP_URL}?action=getData&sheet=Bangunan`);
+        const rawData = await res.json();
+        allData = rawData;   // langsung pakai header asli sheet
+        filteredData = allData;
+        renderTable();
+        document.getElementById('status').textContent =
+          `✅ Berhasil memuat ${allData.length} baris data.`;
+      } catch (err) {
+        console.error(err);
+        document.getElementById('status').textContent =
+          "❌ Gagal memuat data. Pastikan Web App sudah deploy & publik.";
       }
+    }
+
+    function renderTable() {
+      const table = document.getElementById("dataTable");
+      table.innerHTML = "";
+      if (!filteredData.length) {
+        table.innerHTML = "<tr><td colspan='16'>Tidak ada data</td></tr>";
+        return;
+      }
+      const headers = Object.keys(filteredData[0]);
+
+      // buat header
+      const thead = document.createElement("thead");
+      const trh = document.createElement("tr");
+      headers.forEach(h => {
+        const th = document.createElement("th");
+        th.textContent = h;
+        trh.appendChild(th);
+      });
+      thead.appendChild(trh);
+      table.appendChild(thead);
+
+      // isi data
+      const tbody = document.createElement("tbody");
+      filteredData.forEach(r => {
+        const tr = document.createElement("tr");
+        headers.forEach(h => {
+          const td = document.createElement("td");
+          if (h === "LINK DOKUMEN" && r[h]) {
+            const a = document.createElement("a");
+            a.href = r[h];
+            a.textContent = "📎 Dokumen";
+            a.target = "_blank";
+            td.appendChild(a);
+          } else {
+            td.textContent = r[h];
+          }
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+    }
+
+    document.getElementById("search").addEventListener("input", e => {
+      const q = e.target.value.toLowerCase();
+      filteredData = allData.filter(r =>
+        Object.values(r).some(v => String(v).toLowerCase().includes(q))
+      );
+      renderTable();
     });
 
-    // isi dropdown kecamatan (unik)
-    const kecamatanSet = [...new Set(allData.map(d => d.kecamatan))].filter(Boolean).sort();
-    const filterKecamatan = document.getElementById('filterKecamatan');
-    filterKecamatan.innerHTML = '<option value="">-- Semua Kecamatan --</option>';
-    kecamatanSet.forEach(kec => {
-      const opt = document.createElement('option');
-      opt.value = kec;
-      opt.textContent = kec;
-      filterKecamatan.appendChild(opt);
-    });
-
-    renderTable();
-  } catch (err) {
-    console.error("Gagal load data:", err);
-    document.getElementById('status').textContent = "Gagal load data tabel.";
-  }
-}
-
-function applyFilters() {
-  const keyword = document.getElementById('searchBox').value.toLowerCase();
-  const kecamatan = document.getElementById('filterKecamatan').value;
-
-  filteredData = allData.filter(d => {
-    const matchNama = d.namaSatuan ? d.namaSatuan.toLowerCase().includes(keyword) : false;
-    const matchKec = kecamatan ? d.kecamatan === kecamatan : true;
-    return matchNama && matchKec;
-  });
-
-  currentPage = 1;
-  renderTable();
-}
-
-function renderTable() {
-  const tabel = document.getElementById('tabelData');
-  const cardList = document.getElementById('cardList');
-  tabel.innerHTML = "";
-  cardList.innerHTML = "";
-
-  const start = (currentPage - 1) * rowsPerPage;
-  const end = start + rowsPerPage;
-  const pageData = filteredData.slice(start, end);
-
-  pageData.forEach(item => {
-    const sudahUpload = item.dokumen && item.dokumen.startsWith("http");
-    const safeId = encodeURIComponent(item.namaSatuan);
-
-    // baris tabel desktop
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="border p-2">${item.kodeBarang || '-'}</td>
-      <td class="border p-2">${item.namaBarang || '-'}</td>
-      <td class="border p-2">${item.nibar || '-'}</td>
-      <td class="border p-2">${item.noRegister || '-'}</td>
-      <td class="border p-2">${item.spesifikasiNama || '-'}</td>
-      <td class="border p-2">${item.spesifikasiLain || '-'}</td>
-      <td class="border p-2">${item.lokasi || '-'}</td>
-      <td class="border p-2">${item.jumlah || '-'}</td>
-      <td class="border p-2">${item.satuan || '-'}</td>
-      <td class="border p-2">${item.nilaiPerolehan || '-'}</td>
-      <td class="border p-2">${item.tanggalPerolehan || '-'}</td>
-      <td class="border p-2">${item.statusPenggunaan || '-'}</td>
-      <td class="border p-2">${item.keterangan || '-'}</td>
-      <td class="border p-2 text-center">
-        ${sudahUpload ? `<a href="${item.dokumen}" target="_blank" class="text-blue-600 underline">Lihat</a>` : "-"}
-        <div class="mt-1">
-          <input type="file" id="file-${safeId}" class="mb-2 text-xs" ${sudahUpload ? "disabled" : ""}/>
-          <button onclick="uploadFileSekolah('${safeId}')" 
-            class="px-2 py-1 rounded text-xs ${sudahUpload ? 'bg-gray-400 cursor-not-allowed text-white' : 'bg-green-600 text-white hover:bg-green-700'}"
-            ${sudahUpload ? "disabled" : ""}>
-            Upload
-          </button>
-          <p id="status-${safeId}" class="text-xs mt-1 text-gray-600">${sudahUpload ? "Sudah upload" : ""}</p>
-        </div>
-      </td>
-    `;
-    tabel.appendChild(tr);
-
-    // kartu mobile
-    const card = document.createElement('div');
-    card.className = "border rounded-lg p-3 shadow-sm";
-    card.innerHTML = `
-      <p class="font-semibold">${item.namaBarang || '-'}</p>
-      <p class="text-sm text-gray-600">Kode: ${item.kodeBarang || '-'}</p>
-      <p class="text-sm text-gray-600">Lokasi: ${item.lokasi || '-'}</p>
-      <p class="text-sm text-gray-600">Kecamatan: ${item.kecamatan || '-'}</p>
-      <p class="mt-1">Dokumen: ${sudahUpload ? `<a href="${item.dokumen}" target="_blank" class="text-blue-600 underline">Lihat</a>` : "-"}</p>
-      <div class="mt-2">
-        <input type="file" id="file-${safeId}" class="mb-2 text-xs block w-full" ${sudahUpload ? "disabled" : ""}/>
-        <button onclick="uploadFileSekolah('${safeId}')"
-          class="px-3 py-1 rounded text-xs w-full ${sudahUpload ? 'bg-gray-400 cursor-not-allowed text-white' : 'bg-green-600 text-white hover:bg-green-700'}"
-          ${sudahUpload ? "disabled" : ""}>
-          Upload
-        </button>
-        <p id="status-${safeId}" class="text-xs mt-1 text-gray-600">${sudahUpload ? "Sudah upload" : ""}</p>
-      </div>
-    `;
-    cardList.appendChild(card);
-  });
-
-  const totalPages = Math.ceil(filteredData.length / rowsPerPage) || 1;
-  document.getElementById('pageInfo').textContent = `Halaman ${currentPage} dari ${totalPages}`;
-  document.getElementById('prevBtn').disabled = currentPage === 1;
-  document.getElementById('nextBtn').disabled = currentPage === totalPages;
-}
-
-function prevPage() { if (currentPage > 1) { currentPage--; renderTable(); } }
-function nextPage() { const totalPages = Math.ceil(filteredData.length / rowsPerPage); if (currentPage < totalPages) { currentPage++; renderTable(); } }
-
-async function uploadFile() {
-  const fileInput = document.getElementById('fileInput');
-  const satuan = document.getElementById('satuan').value;
-  const status = document.getElementById('status');
-  const btn = document.getElementById('btnGlobalUpload');
-
-  if (!fileInput.files.length) { alert("Pilih file terlebih dahulu!"); return; }
-  if (!satuan) { alert("Pilih satuan pendidikan!"); return; }
-
-  status.textContent = "Mengunggah...";
-  try {
-    const file = fileInput.files[0];
-    const base64 = await fileToBase64(file);
-    const payload = { action: "uploadFile", namaSatuan: satuan, base64: base64.split(',')[1], mimeType: file.type };
-
-    const res = await fetch(WEB_APP_URL, { method: "POST", body: JSON.stringify(payload) });
-    const result = await res.json();
-
-    if (result.success) {
-      status.innerHTML = `Upload berhasil! <a href="${result.fileUrl}" target="_blank" class="text-blue-600 underline">Lihat file</a>`;
-      fileInput.disabled = true; btn.disabled = true;
-      btn.className = "bg-gray-400 text-white px-4 py-2 rounded w-full cursor-not-allowed";
-      const satuanData = allData.find(d => d.namaSatuan === satuan);
-      if (satuanData) satuanData.dokumen = result.fileUrl;
-      applyFilters();
-    } else status.textContent = "Gagal upload: " + result.message;
-  } catch (err) { console.error(err); status.textContent = "Terjadi kesalahan saat upload."; }
-}
-
-async function uploadFileSekolah(safeId) {
-  const namaSatuan = decodeURIComponent(safeId);
-  const fileInput = document.getElementById(`file-${safeId}`);
-  const status = document.getElementById(`status-${safeId}`);
-  if (!fileInput || !fileInput.files.length) { alert("Pilih file terlebih dahulu!"); return; }
-
-  status.textContent = "Mengunggah...";
-  try {
-    const file = fileInput.files[0];
-    const base64 = await fileToBase64(file);
-    const payload = { action: "uploadFile", namaSatuan: namaSatuan, base64: base64.split(',')[1], mimeType: file.type };
-
-    const res = await fetch(WEB_APP_URL, { method: "POST", body: JSON.stringify(payload) });
-    const result = await res.json();
-
-    if (result.success) {
-      status.innerHTML = `Upload berhasil! <a href="${result.fileUrl}" target="_blank" class="text-blue-600 underline">Lihat file</a>`;
-      fileInput.disabled = true; const btn = fileInput.nextElementSibling;
-      btn.disabled = true; btn.className = "px-2 py-1 rounded text-xs bg-gray-400 cursor-not-allowed text-white";
-      const satuanData = allData.find(d => d.namaSatuan === namaSatuan);
-      if (satuanData) satuanData.dokumen = result.fileUrl;
-      applyFilters();
-    } else status.textContent = "Gagal upload: " + result.message;
-  } catch (err) { console.error(err); status.textContent = "Terjadi kesalahan saat upload."; }
-}
-
-loadData();
-</script>
+    window.addEventListener("DOMContentLoaded", loadData);
+  </script>
 </body>
 </html>

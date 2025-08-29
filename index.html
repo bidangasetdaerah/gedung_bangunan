@@ -25,12 +25,10 @@
 
 <div class="bg-white rounded shadow p-4 mb-6 overflow-auto">
   <input type="text" id="searchBox" placeholder="Cari..." class="form-control mb-4 w-full sm:w-64">
-
   <table class="table table-bordered table-striped table-hover">
     <thead id="tableHeader" class="table-light"></thead>
     <tbody id="tableBody"></tbody>
   </table>
-
   <div id="cardList" class="card-list space-y-4"></div>
 </div>
 
@@ -48,7 +46,7 @@
 </div>
 
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxBMLPi2LvYXV3EVidk5Qthm35deo1aSomxtUPLIofEwHoOrsdjkxBL2AlGsFto9dM4nw/exec"; // ganti URL deploy Apps Script
+const WEB_APP_URL = "PASTE_WEB_APP_URL_HERE"; // Ganti URL deploy Apps Script
 let allData=[], filteredData=[], currentPage=1, rowsPerPage=10;
 
 // Convert file to Base64
@@ -61,25 +59,22 @@ function fileToBase64(file){
   });
 }
 
+// Load data dari Sheet
 async function loadData(){
   try{
     const res=await fetch(`${WEB_APP_URL}?action=getAploudData`);
     const data=await res.json();
-    allData=data;
-    filteredData=allData;
-    currentPage=1;
+    allData=data; filteredData=allData; currentPage=1;
     renderTable();
   }catch(err){
-    console.error(err);
-    alert("Gagal load data");
+    console.error(err); alert("Gagal load data");
   }
 }
 
 function applyFilters(){
   const q=document.getElementById("searchBox").value.toLowerCase();
   filteredData=allData.filter(row=>Object.values(row).some(v=>String(v).toLowerCase().includes(q)));
-  currentPage=1;
-  renderTable();
+  currentPage=1; renderTable();
 }
 
 function renderTable(){
@@ -95,38 +90,18 @@ function renderTable(){
   headers.forEach(h=>{const th=document.createElement("th"); th.textContent=h; trh.appendChild(th);});
   thead.appendChild(trh);
 
-  const start=(currentPage-1)*rowsPerPage, end=start+rowsPerPage;
-  const pageData=filteredData.slice(start,end);
-
-  pageData.forEach(row=>{
+  filteredData.forEach(row=>{
     const tr=document.createElement("tr");
     headers.forEach(h=>{
       const td=document.createElement("td");
-      if(h==="Keterangan"){ // kolom M
+      if(h==="Keterangan"){
         td.innerHTML="";
-        if(row[h]){
-          td.innerHTML=`<span class="doc-icon" title="Lihat Dokumen" onclick="previewFileModal('${row[h]}')">📖</span>`;
-        }
+        if(row[h]) td.innerHTML=`<span class="doc-icon" title="Lihat Dokumen" onclick="previewFileModal('${row[h]}')">📖</span>`;
         td.innerHTML+=`<br><input type="file" onchange="uploadFile(event,'${encodeURIComponent(row['Nama Satuan'])}','${encodeURIComponent(row['Status Penggunaan'])}',this.parentNode)"/>`;
       }else td.textContent=row[h];
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
-  });
-
-  pageData.forEach(row=>{
-    const card=document.createElement("div");
-    card.className="border rounded-lg p-3 bg-white shadow-sm";
-    let html="";
-    headers.forEach(h=>{
-      if(h==="Keterangan"){
-        html+=`<p>${h}: `;
-        if(row[h]) html+=`<span class="doc-icon" onclick="previewFileModal('${row[h]}')">📖</span>`;
-        html+=`</p><input type="file" class="w-full mt-1" onchange="uploadFile(event,'${encodeURIComponent(row['Nama Satuan'])}','${encodeURIComponent(row['Status Penggunaan'])}',this.parentNode)"/>`;
-      }else html+=`<p><b>${h}:</b> ${row[h]}</p>`;
-    });
-    card.innerHTML=html;
-    cardList.appendChild(card);
   });
 }
 
@@ -139,38 +114,26 @@ async function uploadFile(e,namaSatuan,status,container){
     const res=await fetch(WEB_APP_URL,{method:"POST",body:JSON.stringify(payload)});
     const result=await res.json();
     if(result.success){
-      statusMsg.textContent="Upload berhasil!";
-      e.target.disabled=true;
-
-      // icon buku baru
+      statusMsg.textContent="Upload berhasil!"; e.target.disabled=true;
       const docIcon=document.createElement("span");
-      docIcon.className="doc-icon";
-      docIcon.title="Lihat Dokumen";
-      docIcon.textContent="📖";
+      docIcon.className="doc-icon"; docIcon.title="Lihat Dokumen"; docIcon.textContent="📖";
       docIcon.onclick=()=>previewFileModal(result.fileUrl);
       container.insertBefore(docIcon, container.firstChild);
-
     }else statusMsg.textContent="Gagal upload: "+result.message;
-  }catch(err){
-    console.error(err);
-    statusMsg.textContent="Terjadi kesalahan saat upload.";
-  }
+  }catch(err){console.error(err); statusMsg.textContent="Terjadi kesalahan saat upload.";}
 }
 
 // Preview file di modal
 function previewFileModal(url){
   const modal=document.getElementById("modalPreview");
   const frame=document.getElementById("previewFrame");
-  modal.style.display="flex";
-  frame.src=`https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
+  modal.style.display="flex"; frame.src=`https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
 }
 
-// Close modal
 document.getElementById("closeModal").addEventListener("click",()=>{
   const modal=document.getElementById("modalPreview");
   const frame=document.getElementById("previewFrame");
-  modal.style.display="none";
-  frame.src="";
+  modal.style.display="none"; frame.src="";
 });
 
 document.getElementById("searchBox").addEventListener("input",applyFilters);

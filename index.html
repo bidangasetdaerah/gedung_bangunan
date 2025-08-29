@@ -1,191 +1,167 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Data Bangunan - Upload Dokumen</title>
-<style>
-body{margin:0;font-family:sans-serif;background:#fefefe;color:#111827;}
-header{padding:20px;text-align:center;background:#f3f4f6;border-bottom:1px solid #e5e7eb;}
-.container{max-width:1200px;margin:0 auto;padding:16px;}
-input, select, button{padding:6px 10px;border-radius:6px;border:1px solid #d1d5db;background:#fff;color:#111827;}
-button:hover{background:#e5e7eb;cursor:pointer;}
-.status{margin-top:12px;font-size:14px;color:#374151;}
-.table-wrapper{overflow:auto;max-height:70vh;margin-top:12px;}
-table{width:100%;border-collapse:collapse;font-size:14px;}
-th,td{padding:8px 12px;border:1px solid #d1d5db;text-align:left;}
-th{background:#f3f4f6;position:sticky;top:0;z-index:1;}
-tr:nth-child(even){background:#f9fafb;}
-.card-list{display:none;}
-.card{border:1px solid #d1d5db;border-radius:6px;padding:12px;margin-bottom:12px;background:#fff;}
-.card p{margin:4px 0;}
-.pagination{margin-top:12px;text-align:center;}
-.pagination button{margin:0 4px;padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:#f3f4f6;color:#111827;}
-.pagination button:disabled{background:#e5e7eb;color:#9ca3af;cursor:not-allowed;}
-@media(max-width:640px){
-  table{display:none;}
-  .card-list{display:block;}
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Dokumen Pendukung</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-<header>
-<h1>📄 Data Bangunan</h1>
-<p>Menarik data & upload dokumen ke Google Sheet</p>
-</header>
+<body class="bg-gray-100 min-h-screen p-4">
+  <h1 class="text-2xl font-bold text-center mb-6">Upload Dokumen Pendukung Inventarisasi</h1>
 
-<main class="container">
-<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
-  <input id="search" placeholder="🔍 Cari data..." style="flex:1;min-width:180px"/>
-  <label>
-    Tampilkan
-    <select id="rowsPerPageSelect">
-      <option value="25">25</option>
-      <option value="50" selected>50</option>
-      <option value="100">100</option>
-    </select>
-    baris
-  </label>
-</div>
-<div id="status" class="status">Memuat data…</div>
-<div class="table-wrapper">
-  <table id="dataTable"></table>
-  <div class="card-list" id="cardList"></div>
-</div>
-<div class="pagination" id="pagination"></div>
-</main>
+  <div class="overflow-x-auto bg-white p-4 rounded shadow">
+    <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+      <input type="text" id="searchBox" placeholder="Cari..." class="border rounded p-2 w-full sm:w-64">
+    </div>
+
+    <table class="table-auto w-full border-collapse border border-gray-300 text-sm">
+      <thead class="bg-gray-200 sticky top-0">
+        <tr id="tableHeader"></tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+
+    <div class="flex justify-center items-center gap-2 mt-4">
+      <button id="prevBtn" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm">Prev</button>
+      <span id="pageInfo" class="text-sm"></span>
+      <button id="nextBtn" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm">Next</button>
+    </div>
+  </div>
 
 <script>
-const WEB_APP_URL = "YOUR_WEB_APP_URL_HERE"; // ganti dengan URL Web App Apps Script
-let allData=[], filteredData=[], currentPage=1, rowsPerPage=50;
+const WEB_APP_URL = "YOUR_WEB_APP_URL_HERE"; // ganti dengan URL Apps Script
+let allData = [];
+let filteredData = [];
+let currentPage = 1;
+const rowsPerPage = 10;
 
-// ===== Load Data =====
-async function loadData(){
-  try{
-    const res = await fetch(`${WEB_APP_URL}?sheet=Bangunan`);
-    const rawData = await res.json();
-    allData = rawData;
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = e => reject(e);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function loadData() {
+  try {
+    const res = await fetch(`${WEB_APP_URL}?action=getAploudData`);
+    const data = await res.json();
+    allData = data;
     filteredData = allData;
-    currentPage=1;
     renderTable();
-    renderCards();
-    renderPagination();
-    document.getElementById('status').textContent=`✅ Berhasil memuat ${allData.length} baris data.`;
-  } catch(err){
+  } catch (err) {
     console.error(err);
-    document.getElementById('status').textContent="❌ Gagal memuat data.";
+    alert("Gagal load data.");
   }
 }
 
-// ===== Render Table =====
-function renderTable(){
-  const table=document.getElementById("dataTable");
-  table.innerHTML="";
-  if(!filteredData.length){ table.innerHTML="<tr><td colspan='16'>Tidak ada data</td></tr>"; return; }
-  const headers=Object.keys(filteredData[0]);
-  const start=(currentPage-1)*rowsPerPage;
-  const end=start+rowsPerPage;
-  const pageData=filteredData.slice(start,end);
+function applyFilters() {
+  const q = document.getElementById("searchBox").value.toLowerCase();
+  filteredData = allData.filter(row => 
+    Object.values(row).some(v => String(v).toLowerCase().includes(q))
+  );
+  currentPage = 1;
+  renderTable();
+}
 
-  const thead=document.createElement("thead");
-  const trh=document.createElement("tr");
-  headers.forEach(h=>{ const th=document.createElement("th"); th.textContent=h; trh.appendChild(th); });
-  thead.appendChild(trh);
-  table.appendChild(thead);
+function renderTable() {
+  const tbody = document.getElementById("tableBody");
+  const thead = document.getElementById("tableHeader");
+  tbody.innerHTML = "";
+  thead.innerHTML = "";
 
-  const tbody=document.createElement("tbody");
-  pageData.forEach(r=>{
-    const tr=document.createElement("tr");
-    headers.forEach(h=>{
-      const td=document.createElement("td");
-      if(h==="LINK DOKUMEN" && r[h]){
-        const a=document.createElement("a"); a.href=r[h]; a.textContent="📎 Dokumen"; a.target="_blank"; td.appendChild(a);
-      } else if(h==="LINK DOKUMEN" && !r[h]){
-        const input=document.createElement("input"); input.type="file"; input.id=`file-${r["Nama Barang"]}`;
-        const btn=document.createElement("button"); btn.textContent="Upload";
-        btn.onclick=()=>uploadFile(r["Nama Barang"]);
-        td.appendChild(input); td.appendChild(btn);
-      } else { td.textContent=r[h]; }
+  if (!filteredData.length) {
+    tbody.innerHTML = "<tr><td colspan='14' class='text-center p-2'>Tidak ada data</td></tr>";
+    return;
+  }
+
+  // buat header
+  const headers = Object.keys(filteredData[0]);
+  headers.forEach(h => {
+    const th = document.createElement("th");
+    th.className = "border p-2";
+    th.textContent = h;
+    thead.appendChild(th);
+  });
+
+  // pagination
+  const start = (currentPage - 1) * rowsPerPage;
+  const end = start + rowsPerPage;
+  const pageData = filteredData.slice(start, end);
+
+  pageData.forEach(row => {
+    const tr = document.createElement("tr");
+    headers.forEach(h => {
+      const td = document.createElement("td");
+      td.className = "border p-2";
+
+      if (h === "LINK DOKUMEN") {
+        if (row[h]) {
+          td.innerHTML = `<a href="${row[h]}" target="_blank" class="text-blue-600 underline">Lihat</a><br>`;
+        }
+        td.innerHTML += `
+          <input type="file" class="text-xs mt-1" onchange="uploadFile(event, '${encodeURIComponent(row['Nama Satuan'])}', '${encodeURIComponent(row['Status Penggunaan'])}')"
+            ${row[h] ? "disabled" : ""}/>
+          ${row[h] ? "<p class='text-xs text-green-600 mt-1'>Sudah upload</p>" : ""}
+        `;
+      } else {
+        td.textContent = row[h];
+      }
+
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
   });
-  table.appendChild(tbody);
+
+  // update pagination info
+  const totalPages = Math.ceil(filteredData.length / rowsPerPage) || 1;
+  document.getElementById("pageInfo").textContent = `Halaman ${currentPage} dari ${totalPages}`;
+  document.getElementById("prevBtn").disabled = currentPage === 1;
+  document.getElementById("nextBtn").disabled = currentPage === totalPages;
 }
 
-// ===== Render Cards Mobile =====
-function renderCards(){
-  const cardList=document.getElementById("cardList");
-  cardList.innerHTML="";
-  const start=(currentPage-1)*rowsPerPage;
-  const end=start+rowsPerPage;
-  const pageData=filteredData.slice(start,end);
-  pageData.forEach(r=>{
-    const card=document.createElement("div"); card.className="card";
-    for(const key in r){
-      if(key==="LINK DOKUMEN"){
-        if(r[key]){
-          const a=document.createElement("a"); a.href=r[key]; a.textContent="📎 Dokumen"; a.target="_blank"; card.appendChild(a);
-        } else {
-          const input=document.createElement("input"); input.type="file"; input.id=`file-${r["Nama Barang"]}-mobile`;
-          const btn=document.createElement("button"); btn.textContent="Upload";
-          btn.onclick=()=>uploadFile(r["Nama Barang"],true);
-          card.appendChild(input); card.appendChild(btn);
-        }
-      } else {
-        const p=document.createElement("p"); p.textContent=`${key}: ${r[key]}`; card.appendChild(p);
-      }
+async function uploadFile(e, namaSatuan, status) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const statusMsg = document.createElement("p");
+  statusMsg.textContent = "Mengunggah...";
+  statusMsg.className = "text-xs mt-1 text-gray-600";
+  e.target.parentNode.appendChild(statusMsg);
+
+  try {
+    const base64 = await fileToBase64(file);
+    const payload = {
+      action: "uploadFile",
+      namaSatuan: decodeURIComponent(namaSatuan),
+      statusPenggunaan: decodeURIComponent(status),
+      base64: base64.split(",")[1],
+      mimeType: file.type
+    };
+
+    const res = await fetch(WEB_APP_URL, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+    if (result.success) {
+      statusMsg.textContent = "Upload berhasil!";
+      e.target.disabled = true;
+      // update link di tabel secara langsung
+      loadData();
+    } else {
+      statusMsg.textContent = "Gagal upload: " + result.message;
     }
-    cardList.appendChild(card);
-  });
+  } catch (err) {
+    console.error(err);
+    statusMsg.textContent = "Terjadi kesalahan saat upload.";
+  }
 }
 
-// ===== Pagination =====
-function renderPagination(){
-  const pagination=document.getElementById("pagination");
-  pagination.innerHTML="";
-  const totalPages=Math.ceil(filteredData.length/rowsPerPage);
-
-  const prevBtn=document.createElement("button"); prevBtn.textContent="⬅️ Prev"; prevBtn.disabled=currentPage===1;
-  prevBtn.onclick=()=>{currentPage--; renderTable(); renderCards(); renderPagination();}; pagination.appendChild(prevBtn);
-
-  const info=document.createElement("span"); info.textContent=` Halaman ${currentPage} dari ${totalPages} `; pagination.appendChild(info);
-
-  const nextBtn=document.createElement("button"); nextBtn.textContent="Next ➡️"; nextBtn.disabled=currentPage===totalPages;
-  nextBtn.onclick=()=>{currentPage++; renderTable(); renderCards(); renderPagination();}; pagination.appendChild(nextBtn);
-}
-
-// ===== Search =====
-document.getElementById("search").addEventListener("input", e=>{
-  const q=e.target.value.toLowerCase();
-  filteredData=allData.filter(r=>Object.values(r).some(v=>String(v).toLowerCase().includes(q)));
-  currentPage=1; renderTable(); renderCards(); renderPagination();
-});
-
-// ===== Rows Per Page =====
-document.getElementById("rowsPerPageSelect").addEventListener("change", e=>{
-  rowsPerPage=parseInt(e.target.value,10); currentPage=1; renderTable(); renderCards(); renderPagination();
-});
-
-// ===== Upload File =====
-async function uploadFile(namaBarang,mobile=false){
-  const inputId = mobile ? `file-${namaBarang}-mobile` : `file-${namaBarang}`;
-  const input=document.getElementById(inputId);
-  if(!input.files.length){ alert("Pilih file terlebih dahulu!"); return; }
-  const file=input.files[0];
-  const reader=new FileReader();
-  reader.onload=async function(e){
-    const base64 = e.target.result.split(",")[1];
-    const payload={namaBarang,base64,mimeType:file.type,sheet:"Bangunan"};
-    try{
-      const res = await fetch(WEB_APP_URL,{method:"POST",body:JSON.stringify(payload)});
-      const result = await res.json();
-      if(result.success){ alert("Upload berhasil!"); input.disabled=true; loadData(); }
-      else alert("Gagal upload: "+result.message);
-    } catch(err){ console.error(err); alert("Terjadi kesalahan saat upload."); }
-  };
-  reader.readAsDataURL(file);
-}
+document.getElementById("searchBox").addEventListener("input", applyFilters);
+document.getElementById("prevBtn").addEventListener("click", () => { if (currentPage>1){currentPage--; renderTable();} });
+document.getElementById("nextBtn").addEventListener("click", () => { const totalPages=Math.ceil(filteredData.length/rowsPerPage); if(currentPage<totalPages){currentPage++; renderTable();} });
 
 window.addEventListener("DOMContentLoaded", loadData);
 </script>

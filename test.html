@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASET TETAP GEDUNG DAN BANGUNAN BERUPA RUMAH NEGARA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+  body { background-color: #f3f4f6; }
+  table th { position: sticky; top: 0; background-color: #f3f3f3; z-index: 20; }
+  table { border-collapse: collapse; }
+  th, td { padding: 0.5rem; border: 1px solid #ccc; text-align: left; }
+  @media(max-width:640px){ table{display:none;} .card-list{display:block;} }
+  @media(min-width:641px){ .card-list{display:none;} }
+  .doc-icon { font-size: 20px; cursor:pointer; margin-right:4px; }
+  iframe { width:100%; height:300px; border:1px solid #ccc; margin-top:4px; }
+  #pagination button { transition: all 0.2s; }
+</style>
+</head>
+<body class="p-4">
+
+<div class="container mx-auto">
+<h1 class="text-2xl font-bold text-center mb-6">ASET TETAP GEDUNG DAN BANGUNAN BERUPA RUMAH NEGARA</h1>
+
+<div class="bg-white rounded shadow p-4 mb-6 overflow-auto">
+  <input type="text" id="searchBox" placeholder="Cari..." class="form-control mb-4 w-full sm:w-64">
+  
+  <div style="overflow-x:auto;">
+    <table class="table table-bordered table-striped table-hover">
+      <thead id="tableHeader" class="table-light"></thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+  <div id="pagination" class="flex justify-center items-center mt-4 space-x-2 flex-wrap"></div>
+  <div id="cardList" class="card-list space-y-4 mt-4"></div>
+  <!-- Counter jumlah dokumen -->
+  <div id="docCounter" class="text-sm mt-2 font-semibold text-gray-700"></div>
+</div>
+
+<script>
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby0xSjtmRifofuxjUZK1pOcbjqqQpsSXqH7OE2l5yE59dDZZLXBIsmAzx-640fyzpLnBw/exec";
+let allData=[], filteredData=[], currentPage=1, rowsPerPage=50;
+
+function fileToBase64(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result);
+    reader.onerror=e=>reject(e);
+    reader.readAsDataURL(file);
+  });
+}
+
+function formatRupiah(val){
+  if(!val) return "";
+  let num = Number(val.toString().replace(/[^0-9.-]+/g,""));
+  return "Rp."+num.toLocaleString("id-ID",{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+async function loadData(){
+  try{
+    const res = await fetch(`${WEB_APP_URL}?action=getAploudData`);
+    const data = await res.json();
+    allData = data;
+    filteredData = allData;
+    currentPage = 1;
+    renderTable();
+  }catch(err){
+    console.error(err);
+    alert("Gagal load data");
+  }
+}
+
+function applyFilters(){
+  const q = document.getElementById("searchBox").value.toLowerCase();
+  filteredData = allData.filter(row => Object.values(row).some(v=>String(v).toLowerCase().includes(q)));
+  currentPage = 1;
+  renderTable();
+}
+
+function renderTable(){
+  const tbody = document.getElementById("tableBody");
+  const thead = document.getElementById("tableHeader");
+  const cardList = document.getElementById("cardList");
+  const pagination = document.getElementById("pagination");
+  tbody.innerHTML=""; thead.innerHTML=""; cardList.innerHTML=""; pagination.innerHTML="";
+
+  if(!filteredData.length){
+    tbody.innerHTML="<tr><td colspan='14' class='text-center p-2'>Tidak ada data</td></tr>"; 
+    updateDocCounter();
+    return;
+  }
+
+  // Render header
+  const headers = Object.keys(filteredData[0]);
+  const trh = document.createElement("tr");
+  headers.forEach(h=>{
+    const th = document.createElement("th");
+    th.textContent = h;
+    trh.appendChild(th);
+  });
+  thead.appendChild(trh);
+
+  // Pagination slice
+  const start = (currentPage-1)*rowsPerPage;
+  const end = start + rowsPerPage;
+  const paginatedData = filteredData.slice(start, end);
+
+  paginatedData.forEach(row=>{
+    const tr = document.createElement("tr");
+    headers.forEach(h=>{
+      const td = document.createElement("td");
+      if(h === "LINK DOKUMEN"){
+        td.innerHTML = "";
+        const fileInput = document.createElement("input");
+        fileInput.type = "file";
+        fileInput.className = "w-full mt-1";
+        fileInput.onchange = (e)=>uploadFile(e,row['Nama Barang'],row['Status Penggunaan'],td);
+
+        if(row[h]) {
+          td.innerHTML = `<a href="${row[h]}" target="_blank" class="doc-icon">📖</a>`;
+          fileInput.disabled = true;
+          const iframe = document.createElement("iframe");
+          iframe.src = `https://docs.google.com/gview?url=${encodeURIComponent(row[h])}&embedded=true`;
+          td.appendChild(iframe);
+        }
+        td.appendChild(fileInput);
+      } else if(h==="Nilai Perolehan (Rp)"){
+        td.textContent = formatRupiah(row[h]);
+      } else {
+        td.textContent = row[h];
+      }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+
+  // Card view mobile
+  filteredData.forEach(row=>{
+    const card = document.createElement("div");
+    card.className = "border rounded-lg p-3 bg-white shadow-sm";
+    let html="";
+    headers.forEach(h=>{
+      if(h === "LINK DOKUMEN"){
+        html += `<p>${h}: `;
+        if(row[h]) html += `<a href="${row[h]}" target="_blank" class="doc-icon">📖</a>`;
+        html += `</p>`;
+        if(row[h]) html += `<iframe src="https://docs.google.com/gview?url=${encodeURIComponent(row[h])}&embedded=true"></iframe>`;
+        html += `<input type="file" class="w-full mt-1" ${row[h] ? "disabled" : ""} onchange="uploadFile(event,'${encodeURIComponent(row['Nama Barang'])}','${encodeURIComponent(row['Status Penggunaan'])}',this.parentNode)"/>`;
+      } else if(h==="Nilai Perolehan (Rp)"){
+        html += `<p><b>${h}:</b> ${formatRupiah(row[h])}</p>`;
+      } else {
+        html += `<p><b>${h}:</b> ${row[h]}</p>`;
+      }
+    });
+    card.innerHTML = html;
+    cardList.appendChild(card);
+  });
+
+  renderPagination();
+  updateDocCounter(); // update counter setiap render
+}
+
+function renderPagination(){
+  const pagination = document.getElementById("pagination");
+  const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+
+  if(totalPages <= 1) return;
+
+  const createBtn = (text, page) => {
+    const btn = document.createElement("button");
+    btn.textContent = text;
+    btn.className = "px-3 py-1 border rounded hover:bg-gray-200 m-1";
+    if(page === currentPage) btn.classList.add("bg-gray-300");
+    btn.onclick = () => { currentPage=page; renderTable(); };
+    return btn;
+  };
+
+  if(currentPage>1) pagination.appendChild(createBtn("Prev", currentPage-1));
+
+  for(let i=1;i<=totalPages;i++){
+    pagination.appendChild(createBtn(i, i));
+  }
+
+  if(currentPage<totalPages) pagination.appendChild(createBtn("Next", currentPage+1));
+}
+
+function updateDocCounter() {
+  const filled = filteredData.filter(row => row["LINK DOKUMEN"] && row["LINK DOKUMEN"].trim() !== "").length;
+  const total = filteredData.length;
+  const percent = total > 0 ? ((filled / total) * 100).toFixed(2) : 0;
+  document.getElementById("docCounter").textContent = 
+    `Jumlah data yang sudah mengisi link dokumen: ${filled} dari ${total} (${percent}%)`;
+}
+
+async function uploadFile(e,namaBarang,status,container){
+  const file = e.target.files[0]; if(!file) return;
+  const statusMsg = document.createElement("p"); statusMsg.textContent="Mengunggah..."; container.appendChild(statusMsg);
+
+  try{
+    const base64 = await fileToBase64(file);
+    const payload = {
+      action: "uploadFile",
+      namaBarang: decodeURIComponent(namaBarang),
+      statusPenggunaan: decodeURIComponent(status),
+      base64: base64.split(",")[1],
+      mimeType: file.type
+    };
+    const res = await fetch(WEB_APP_URL, { method: "POST", body: JSON.stringify(payload) });
+    const result = await res.json();
+    if(result.success){
+      statusMsg.textContent="Upload berhasil!";
+      e.target.disabled = true;
+
+      const docIcon = document.createElement("a");
+      docIcon.href = result.fileUrl;
+      docIcon.target = "_blank";
+      docIcon.className = "doc-icon";
+      docIcon.textContent = "📖";
+      container.insertBefore(docIcon, container.firstChild);
+
+      const iframe = document.createElement("iframe");
+      iframe.src = `https://docs.google.com/gview?url=${encodeURIComponent(result.fileUrl)}&embedded=true`;
+      container.appendChild(iframe);
+
+      updateDocCounter(); // refresh counter setelah upload
+    } else statusMsg.textContent="Gagal upload: "+result.message;
+  } catch(err){
+    console.error(err);
+    statusMsg.textContent="Terjadi kesalahan saat upload.";
+  }
+}
+
+document.getElementById("searchBox").addEventListener("input",applyFilters);
+window.addEventListener("DOMContentLoaded", loadData);
+</script>
+
+</body>
+</html>
